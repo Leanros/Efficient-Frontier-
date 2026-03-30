@@ -1,0 +1,5 @@
+{
+  "name": "IDX Efficient Frontier",
+  "description": "Calculate and visualize the efficient frontier for Indonesian stocks (IDX) using historical data.",
+  "requestFramePermissions": []
+}
