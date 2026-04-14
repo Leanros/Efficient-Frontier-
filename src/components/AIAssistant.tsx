@@ -7,8 +7,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card'
 import { cn } from '@/src/lib/utils';
 import Markdown from 'react-markdown';
 
-// Initialize Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+// Initialize Gemini API lazily — only when the key is available
+const apiKey = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 interface Message {
   role: 'user' | 'model';
@@ -42,6 +43,11 @@ export function AIAssistant({ contextData }: { contextData: any }) {
     setIsLoading(true);
 
     try {
+      if (!ai) {
+        setMessages(prev => [...prev, { role: 'model', content: 'API Key belum dikonfigurasi. Silakan set VITE_GEMINI_API_KEY di environment.' }]);
+        return;
+      }
+
       const contextDataForAI = contextData ? { ...contextData, scatterPoints: undefined } : null;
 
       const systemInstruction = `Anda adalah asisten AI ahli keuangan (Hedge Fund Engineer) yang membantu pengguna memahami Efficient Frontier dan portofolio saham Indonesia. 
