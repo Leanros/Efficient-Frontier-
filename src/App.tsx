@@ -1,60 +1,40 @@
 import React, { useState } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from 'recharts';
-import { Activity, TrendingUp, ShieldAlert, Loader2, Plus, X as XIcon, Download, FileText, Table, Filter } from 'lucide-react';
+import { Activity, Loader2, Plus, X as XIcon, FileText, Table } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
+import { Select } from './components/ui/select';
 import { AIAssistant } from './components/AIAssistant';
 import { Learn } from './components/Learn';
 import { Simulation } from './components/Simulation';
 import { Screener } from './components/Screener';
+import { EfficientFrontierChart } from './components/EfficientFrontierChart';
+import { PortfolioCard } from './components/PortfolioCard';
+import { AssetPerformanceTable } from './components/AssetPerformanceTable';
+import { CorrelationMatrixTable } from './components/CorrelationMatrix';
+import { CumulativeReturnsChart } from './components/CumulativeReturnsChart';
+import { DrawdownChart } from './components/DrawdownChart';
+import { RollingMetricsChart } from './components/RollingMetricsChart';
+import { StressTestsPanel } from './components/StressTestsPanel';
+import { Top100Table } from './components/Top100Table';
+import { formatPercent } from './types';
+import type { FrontierData } from './types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
-interface Portfolio {
-  weights: Record<string, number>;
-  return: number;
-  risk: number;
-  sharpe: number;
-  var95?: number;
-  cvar95?: number;
-  maxDrawdown?: number;
-  beta?: number;
-}
+type TabId = 'optimizer' | 'simulation' | 'learn' | 'screener';
 
-interface Asset {
-  ticker: string;
-  meanReturn: number;
-  volatility: number;
-  sharpe: number;
-  var95?: number;
-  cvar95?: number;
-  maxDrawdown?: number;
-  beta?: number;
-}
-
-interface FrontierData {
-  maxSharpe: Portfolio;
-  minVol: Portfolio;
-  riskParity: Portfolio;
-  selectedPortfolio: Portfolio;
-  scatterPoints: { risk: number; return: number; sharpe: number }[];
-  top100Portfolios: Portfolio[];
-  cumulativeReturns: { date: string; portfolio: number; ihsg: number }[];
-  drawdownSeries: { date: string; drawdown: number }[];
-  rollingMetrics: { date: string; sharpe: number; volatility: number }[];
-  stressTests: {
-    covid: { return: number; maxDrawdown: number };
-    gfc: { return: number; maxDrawdown: number };
-  };
-  assets: Asset[];
-  correlationMatrix: number[][];
-}
+const tabs: { id: TabId; label: string }[] = [
+  { id: 'optimizer', label: 'Optimizer' },
+  { id: 'screener', label: 'Screener' },
+  { id: 'simulation', label: 'Simulasi' },
+  { id: 'learn', label: 'Belajar' },
+];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'optimizer' | 'simulation' | 'learn' | 'screener'>('optimizer');
+  const [activeTab, setActiveTab] = useState<TabId>('optimizer');
   const [tickers, setTickers] = useState<string[]>(['BBCA', 'BBRI', 'BMRI', 'TLKM']);
   const [startYear, setStartYear] = useState('2015');
   const [endYear, setEndYear] = useState('2023');
@@ -146,8 +126,6 @@ export default function App() {
       setLoading(false);
     }
   };
-
-  const formatPercent = (val: number) => `${(val * 100).toFixed(2)}%`;
 
   const downloadPDF = () => {
     if (!data) return;
@@ -361,665 +339,248 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-8 font-sans text-slate-50 selection:bg-blue-500/30">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-slate-950 font-sans text-slate-50 selection:bg-blue-500/30">
+      {/* Subtle grid background */}
+      <div className="fixed inset-0 bg-[linear-gradient(rgba(30,41,59,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.5)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+
+      <div className="relative max-w-7xl mx-auto p-4 md:p-8 space-y-8">
+        {/* Header */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-              <Activity className="w-6 h-6 text-blue-400" />
+            <div className="p-2.5 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+              <Activity className="w-7 h-7 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Nusantara Quant</h1>
-              <p className="text-sm text-slate-400">Advanced Portfolio Optimization</p>
+              <h1 className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-300">
+                Nusantara Quant
+              </h1>
+              <p className="text-sm text-slate-500">Advanced Portfolio Optimization</p>
             </div>
           </div>
-          
-          <div className="flex bg-slate-900/80 p-1 rounded-lg border border-slate-800 shadow-inner">
-            <button 
-              onClick={() => setActiveTab('optimizer')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${activeTab === 'optimizer' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-            >
-              Optimizer
-            </button>
-            <button 
-              onClick={() => setActiveTab('screener')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${activeTab === 'screener' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-            >
-              Screener
-            </button>
-            <button 
-              onClick={() => setActiveTab('simulation')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${activeTab === 'simulation' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-            >
-              Simulasi
-            </button>
-            <button 
-              onClick={() => setActiveTab('learn')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${activeTab === 'learn' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-            >
-              Belajar
-            </button>
-          </div>
+
+          <nav className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 shadow-inner">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_0_12px_rgba(37,99,235,0.4)]'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
           {activeTab === 'optimizer' && data && (
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm" onClick={downloadPDF} className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 bg-slate-900">
+              <Button variant="outline" size="sm" onClick={downloadPDF} className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 bg-slate-900/80">
                 <FileText className="w-4 h-4 mr-2" /> PDF
               </Button>
-              <Button variant="outline" size="sm" onClick={downloadExcel} className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 bg-slate-900">
+              <Button variant="outline" size="sm" onClick={downloadExcel} className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 bg-slate-900/80">
                 <Table className="w-4 h-4 mr-2" /> Excel
               </Button>
             </div>
           )}
         </header>
 
+        {/* Tab Content */}
         {activeTab === 'screener' && <Screener />}
-        {activeTab === 'simulation' && <Simulation />}
+        {activeTab === 'simulation' && <Simulation data={data} />}
         {activeTab === 'learn' && <Learn />}
 
         {activeTab === 'optimizer' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Sidebar Controls */}
             <Card className="lg:col-span-1 h-fit bg-slate-900/50 border-slate-800 backdrop-blur-sm shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-slate-200">Parameters</CardTitle>
-              <CardDescription className="text-slate-400">Configure your portfolio constraints</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <Label className="text-slate-300">Tickers (IDX)</Label>
-                <div className="space-y-2">
-                  {tickers.map((ticker, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Input 
-                          value={ticker} 
-                          onChange={(e) => handleTickerChange(idx, e.target.value)} 
-                          placeholder="e.g. BBCA"
-                          className="bg-slate-950 border-slate-800 text-slate-200 focus-visible:ring-blue-500"
-                        />
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => removeTicker(idx)}
-                          disabled={tickers.length <= 2}
-                          className="text-slate-400 hover:text-red-400 hover:bg-red-400/10"
-                        >
-                          <XIcon className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="flex space-x-2 pl-2">
-                        <div className="w-1/2">
-                          <Label className="text-xs text-slate-500">Min %</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="0" 
-                            className="h-7 text-xs bg-slate-950 border-slate-800 text-slate-300"
-                            value={weightConstraints[ticker]?.min || ''}
-                            onChange={(e) => handleConstraintChange(ticker, 'min', e.target.value)}
+              <CardHeader>
+                <CardTitle className="text-slate-200">Parameters</CardTitle>
+                <CardDescription className="text-slate-400">Configure your portfolio</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Tickers */}
+                <div className="space-y-3">
+                  <Label className="text-slate-300">Tickers (IDX)</Label>
+                  <div className="space-y-2">
+                    {tickers.map((ticker, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            value={ticker}
+                            onChange={(e) => handleTickerChange(idx, e.target.value)}
+                            placeholder="e.g. BBCA"
+                            className="bg-slate-950 border-slate-700 text-slate-200 focus-visible:ring-blue-500"
                           />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeTicker(idx)}
+                            disabled={tickers.length <= 2}
+                            className="text-slate-500 hover:text-red-400 hover:bg-red-400/10"
+                          >
+                            <XIcon className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <div className="w-1/2">
-                          <Label className="text-xs text-slate-500">Max %</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="100" 
-                            className="h-7 text-xs bg-slate-950 border-slate-800 text-slate-300"
-                            value={weightConstraints[ticker]?.max || ''}
-                            onChange={(e) => handleConstraintChange(ticker, 'max', e.target.value)}
-                          />
+                        <div className="flex space-x-2 pl-2">
+                          <div className="w-1/2">
+                            <Label className="text-xs text-slate-500">Min %</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              className="h-7 text-xs bg-slate-950 border-slate-700 text-slate-300"
+                              value={weightConstraints[ticker]?.min || ''}
+                              onChange={(e) => handleConstraintChange(ticker, 'min', e.target.value)}
+                            />
+                          </div>
+                          <div className="w-1/2">
+                            <Label className="text-xs text-slate-500">Max %</Label>
+                            <Input
+                              type="number"
+                              placeholder="100"
+                              className="h-7 text-xs bg-slate-950 border-slate-700 text-slate-300"
+                              value={weightConstraints[ticker]?.max || ''}
+                              onChange={(e) => handleConstraintChange(ticker, 'max', e.target.value)}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={addTicker}
-                  className="w-full border-dashed border-slate-700 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/10 bg-transparent"
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add Ticker
-                </Button>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startYear" className="text-slate-300">Start Year</Label>
-                  <Input 
-                    id="startYear" 
-                    type="number" 
-                    min="2010" 
-                    max="2026" 
-                    value={startYear} 
-                    onChange={(e) => setStartYear(e.target.value)} 
-                    className="bg-slate-950 border-slate-800 text-slate-200 focus-visible:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endYear" className="text-slate-300">End Year</Label>
-                  <Input 
-                    id="endYear" 
-                    type="number" 
-                    min="2010" 
-                    max="2026" 
-                    value={endYear} 
-                    onChange={(e) => setEndYear(e.target.value)} 
-                    className="bg-slate-950 border-slate-800 text-slate-200 focus-visible:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="period" className="text-slate-300">Period</Label>
-                <select 
-                  id="period"
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  <option value="Daily">Daily</option>
-                  <option value="Weekly">Weekly</option>
-                  <option value="MoM">Monthly (MoM)</option>
-                  <option value="YoY">Yearly (YoY)</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="optimizationModel" className="text-slate-300">Optimization Model</Label>
-                <select 
-                  id="optimizationModel"
-                  value={optimizationModel}
-                  onChange={(e) => setOptimizationModel(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                >
-                  <option value="mean-variance">Mean-Variance (Max Sharpe)</option>
-                  <option value="risk-parity">Risk Parity</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="rebalanceFreq" className="text-slate-300">Rebalance</Label>
-                  <select 
-                    id="rebalanceFreq"
-                    value={rebalanceFreq}
-                    onChange={(e) => setRebalanceFreq(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addTicker}
+                    className="w-full border-dashed border-slate-700 text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5 bg-transparent"
                   >
-                    <option value="none">None</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
+                    <Plus className="w-4 h-4 mr-2" /> Add Ticker
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="transactionCost" className="text-slate-300">Tx Cost (%)</Label>
-                  <Input 
-                    id="transactionCost" 
-                    type="number" 
-                    step="0.01"
-                    value={transactionCost} 
-                    onChange={(e) => setTransactionCost(e.target.value)} 
-                    className="bg-slate-950 border-slate-800 text-slate-200 focus-visible:ring-blue-500"
-                  />
+
+                {/* Date Range */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="startYear" className="text-slate-300 text-xs">Start Year</Label>
+                    <Input id="startYear" type="number" min="2010" max="2026" value={startYear} onChange={(e) => setStartYear(e.target.value)} className="bg-slate-950 border-slate-700 text-slate-200 focus-visible:ring-blue-500" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="endYear" className="text-slate-300 text-xs">End Year</Label>
+                    <Input id="endYear" type="number" min="2010" max="2026" value={endYear} onChange={(e) => setEndYear(e.target.value)} className="bg-slate-950 border-slate-700 text-slate-200 focus-visible:ring-blue-500" />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="riskFreeRate" className="text-slate-300">Risk-Free Rate (%)</Label>
-                <Input 
-                  id="riskFreeRate" 
-                  type="number" 
-                  step="0.01"
-                  value={riskFreeRate} 
-                  onChange={(e) => setRiskFreeRate(e.target.value)} 
-                  className="bg-slate-950 border-slate-800 text-slate-200 focus-visible:ring-blue-500"
-                  placeholder="e.g. 6.25 for BI Rate"
-                />
-              </div>
+                {/* Period */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="period" className="text-slate-300 text-xs">Period</Label>
+                  <Select id="period" value={period} onChange={(e) => setPeriod(e.target.value)}>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="MoM">Monthly (MoM)</option>
+                    <option value="YoY">Yearly (YoY)</option>
+                  </Select>
+                </div>
 
-              <Button 
-                className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]" 
-                onClick={handleCalculate}
-                disabled={loading}
-              >
-                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {loading ? 'Calculating...' : 'Calculate Frontier'}
-              </Button>
+                {/* Optimization Model */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="optimizationModel" className="text-slate-300 text-xs">Optimization Model</Label>
+                  <Select id="optimizationModel" value={optimizationModel} onChange={(e) => setOptimizationModel(e.target.value)}>
+                    <option value="mean-variance">Mean-Variance (Max Sharpe)</option>
+                    <option value="risk-parity">Risk Parity</option>
+                  </Select>
+                </div>
 
-              {error && (
-                <div className="p-3 text-sm text-red-400 bg-red-950/30 rounded-md border border-red-900/50">
-                  {error}
+                {/* Rebalance & Tx Cost */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rebalanceFreq" className="text-slate-300 text-xs">Rebalance</Label>
+                    <Select id="rebalanceFreq" value={rebalanceFreq} onChange={(e) => setRebalanceFreq(e.target.value)}>
+                      <option value="none">None</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="yearly">Yearly</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="transactionCost" className="text-slate-300 text-xs">Tx Cost (%)</Label>
+                    <Input id="transactionCost" type="number" step="0.01" value={transactionCost} onChange={(e) => setTransactionCost(e.target.value)} className="bg-slate-950 border-slate-700 text-slate-200 focus-visible:ring-blue-500" />
+                  </div>
+                </div>
+
+                {/* Risk-Free Rate */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="riskFreeRate" className="text-slate-300 text-xs">Risk-Free Rate (%)</Label>
+                  <Input id="riskFreeRate" type="number" step="0.01" value={riskFreeRate} onChange={(e) => setRiskFreeRate(e.target.value)} className="bg-slate-950 border-slate-700 text-slate-200 focus-visible:ring-blue-500" placeholder="e.g. 6.25 for BI Rate" />
+                </div>
+
+                {/* Calculate Button */}
+                <Button
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all duration-300"
+                  onClick={handleCalculate}
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {loading ? 'Calculating...' : 'Calculate Frontier'}
+                </Button>
+
+                {error && (
+                  <div className="p-3 text-sm text-red-400 bg-red-950/30 rounded-lg border border-red-900/50">
+                    {error}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Main Content Area */}
+            <div className="lg:col-span-3 space-y-8">
+              {data ? (
+                <>
+                  <EfficientFrontierChart data={data} optimizationModel={optimizationModel} />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <PortfolioCard portfolio={data.selectedPortfolio} variant="selected" optimizationModel={optimizationModel} />
+                    <PortfolioCard portfolio={data.minVol} variant="minVol" />
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <AssetPerformanceTable assets={data.assets} />
+                    <CorrelationMatrixTable assets={data.assets} correlationMatrix={data.correlationMatrix} />
+                  </div>
+
+                  <CumulativeReturnsChart cumulativeReturns={data.cumulativeReturns} optimizationModel={optimizationModel} />
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <DrawdownChart drawdownSeries={data.drawdownSeries} />
+                    <RollingMetricsChart rollingMetrics={data.rollingMetrics} />
+                  </div>
+
+                  <StressTestsPanel stressTests={data.stressTests} />
+
+                  <Top100Table portfolios={data.top100Portfolios} assets={data.assets} />
+                </>
+              ) : (
+                <div className="h-full min-h-[500px] flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-800/50 rounded-2xl bg-slate-900/10 backdrop-blur-sm">
+                  <div className="p-4 bg-blue-500/5 rounded-full mb-6">
+                    <Activity className="w-16 h-16 opacity-15 text-blue-500" />
+                  </div>
+                  <p className="text-lg font-medium text-slate-400 mb-2">No Data Yet</p>
+                  <p className="text-sm text-slate-600 max-w-sm text-center">
+                    Enter your portfolio parameters on the left and click &ldquo;Calculate Frontier&rdquo; to see optimized portfolios.
+                  </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3 space-y-8">
-            {data ? (
-              <>
-                <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200">Efficient Frontier</CardTitle>
-                    <CardDescription className="text-slate-400">Risk vs Expected Return (Annualized)</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[400px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                          <XAxis 
-                            type="number" 
-                            dataKey="risk" 
-                            name="Volatility (Risk)" 
-                            unit="%" 
-                            domain={['auto', 'auto']}
-                            tickFormatter={(tick) => tick.toFixed(1)}
-                            stroke="#64748b"
-                          />
-                          <YAxis 
-                            type="number" 
-                            dataKey="return" 
-                            name="Expected Return" 
-                            unit="%" 
-                            domain={['auto', 'auto']}
-                            tickFormatter={(tick) => tick.toFixed(1)}
-                            stroke="#64748b"
-                          />
-                          <Tooltip 
-                            cursor={{ strokeDasharray: '3 3', stroke: '#3b82f6' }}
-                            content={({ active, payload }) => {
-                              if (active && payload && payload.length) {
-                                const data = payload[0].payload;
-                                return (
-                                  <div className="bg-slate-950/90 p-3 border border-slate-800 rounded-lg shadow-xl backdrop-blur-md">
-                                    <p className="font-medium text-sm mb-1 text-slate-200">Portfolio</p>
-                                    <p className="text-xs text-slate-400">Return: <span className="text-blue-400">{data.return.toFixed(2)}%</span></p>
-                                    <p className="text-xs text-slate-400">Risk: <span className="text-blue-400">{data.risk.toFixed(2)}%</span></p>
-                                    <p className="text-xs text-slate-400">Sharpe: <span className="text-blue-400">{data.sharpe.toFixed(2)}</span></p>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                          <Scatter name="Portfolios" data={data.scatterPoints} fill="#3b82f6" opacity={0.3} />
-                          {/* Highlight Selected Portfolio */}
-                          <Scatter 
-                            name={optimizationModel === 'risk-parity' ? 'Risk Parity' : 'Max Sharpe'} 
-                            data={[{ risk: data.selectedPortfolio.risk * 100, return: data.selectedPortfolio.return * 100, sharpe: data.selectedPortfolio.sharpe }]} 
-                            fill="#22d3ee" 
-                            shape="star"
-                          />
-                          {/* Highlight Min Volatility */}
-                          <Scatter 
-                            name="Min Volatility" 
-                            data={[{ risk: data.minVol.risk * 100, return: data.minVol.return * 100, sharpe: data.minVol.sharpe }]} 
-                            fill="#818cf8" 
-                            shape="triangle"
-                          />
-                        </ScatterChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex items-center justify-center space-x-6 mt-4 text-sm text-slate-400">
-                      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-500 opacity-50 mr-2"></div> Simulated</div>
-                      <div className="flex items-center"><div className="w-3 h-3 bg-cyan-400 mr-2" style={{ clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }}></div> {optimizationModel === 'risk-parity' ? 'Risk Parity' : 'Max Sharpe'}</div>
-                      <div className="flex items-center"><div className="w-3 h-3 bg-indigo-400 mr-2" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div> Min Volatility</div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Selected Portfolio Card */}
-                  <Card className="bg-slate-900/50 border-cyan-900/50 backdrop-blur-sm shadow-[0_0_15px_rgba(34,211,238,0.05)]">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-cyan-400">
-                          {optimizationModel === 'risk-parity' ? 'Risk Parity Portfolio' : 'Maximum Sharpe'}
-                        </CardTitle>
-                        <TrendingUp className="w-5 h-5 text-cyan-400" />
-                      </div>
-                      <CardDescription className="text-slate-400">
-                        {optimizationModel === 'risk-parity' ? 'Equal risk contribution' : 'Optimal risk-adjusted return'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">Return</p>
-                          <p className="text-lg font-semibold text-slate-200">{formatPercent(data.selectedPortfolio.return)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">Risk</p>
-                          <p className="text-lg font-semibold text-slate-200">{formatPercent(data.selectedPortfolio.risk)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">Sharpe</p>
-                          <p className="text-lg font-semibold text-slate-200">{data.selectedPortfolio.sharpe.toFixed(2)}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium mb-3 text-slate-300">Allocation</p>
-                        <div className="space-y-2">
-                          {Object.entries(data.selectedPortfolio.weights).map(([ticker, weight]) => (
-                            <div key={ticker} className="flex items-center justify-between text-sm">
-                              <span className="font-medium text-slate-300">{ticker}</span>
-                              <div className="flex-1 mx-4 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-cyan-500 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.5)]" 
-                                  style={{ width: `${(weight as number) * 100}%` }}
-                                />
-                              </div>
-                              <span className="w-12 text-right text-slate-400">{formatPercent(weight as number)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Min Volatility Card */}
-                  <Card className="bg-slate-900/50 border-indigo-900/50 backdrop-blur-sm shadow-[0_0_15px_rgba(129,140,248,0.05)]">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-indigo-400">Minimum Volatility</CardTitle>
-                        <ShieldAlert className="w-5 h-5 text-indigo-400" />
-                      </div>
-                      <CardDescription className="text-slate-400">Lowest possible risk</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">Return</p>
-                          <p className="text-lg font-semibold text-slate-200">{formatPercent(data.minVol.return)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">Risk</p>
-                          <p className="text-lg font-semibold text-slate-200">{formatPercent(data.minVol.risk)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1">Sharpe</p>
-                          <p className="text-lg font-semibold text-slate-200">{data.minVol.sharpe.toFixed(2)}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium mb-3 text-slate-300">Allocation</p>
-                        <div className="space-y-2">
-                          {Object.entries(data.minVol.weights).map(([ticker, weight]) => (
-                            <div key={ticker} className="flex items-center justify-between text-sm">
-                              <span className="font-medium text-slate-300">{ticker}</span>
-                              <div className="flex-1 mx-4 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(129,140,248,0.5)]" 
-                                  style={{ width: `${(weight as number) * 100}%` }}
-                                />
-                              </div>
-                              <span className="w-12 text-right text-slate-400">{formatPercent(weight as number)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Individual Assets & Correlation */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                    <CardHeader>
-                      <CardTitle className="text-slate-200">Asset Performance</CardTitle>
-                      <CardDescription className="text-slate-400">Individual metrics</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                          <thead className="text-xs text-slate-400 uppercase bg-slate-950/50">
-                            <tr>
-                              <th className="px-4 py-3 rounded-tl-lg">Ticker</th>
-                              <th className="px-4 py-3">Return</th>
-                              <th className="px-4 py-3">Risk</th>
-                              <th className="px-4 py-3">Sharpe</th>
-                              <th className="px-4 py-3">VaR (95%)</th>
-                              <th className="px-4 py-3">CVaR (95%)</th>
-                              <th className="px-4 py-3">Max DD</th>
-                              <th className="px-4 py-3 rounded-tr-lg">Beta</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {data.assets.map((asset) => (
-                              <tr key={asset.ticker} className="border-b border-slate-800/50 last:border-0">
-                                <td className="px-4 py-3 font-medium text-blue-400">{asset.ticker}</td>
-                                <td className="px-4 py-3 text-slate-300">{formatPercent(asset.meanReturn)}</td>
-                                <td className="px-4 py-3 text-slate-300">{formatPercent(asset.volatility)}</td>
-                                <td className="px-4 py-3 text-slate-300">{asset.sharpe.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-slate-300">{asset.var95 ? formatPercent(asset.var95) : '-'}</td>
-                                <td className="px-4 py-3 text-slate-300">{asset.cvar95 ? formatPercent(asset.cvar95) : '-'}</td>
-                                <td className="px-4 py-3 text-slate-300">{asset.maxDrawdown ? formatPercent(asset.maxDrawdown) : '-'}</td>
-                                <td className="px-4 py-3 text-slate-300">{asset.beta ? asset.beta.toFixed(2) : '-'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                    <CardHeader>
-                      <CardTitle className="text-slate-200">Correlation Matrix</CardTitle>
-                      <CardDescription className="text-slate-400">Asset price relationships</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-center">
-                          <thead className="text-xs text-slate-400 uppercase bg-slate-950/50">
-                            <tr>
-                              <th className="px-2 py-2 rounded-tl-lg"></th>
-                              {data.assets.map(a => <th key={a.ticker} className="px-2 py-2 font-medium">{a.ticker}</th>)}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {data.correlationMatrix.map((row, i) => (
-                              <tr key={i} className="border-b border-slate-800/50 last:border-0">
-                                <td className="px-2 py-2 font-medium text-slate-400 bg-slate-950/30">{data.assets[i].ticker}</td>
-                                {row.map((val, j) => {
-                                  // Color coding based on correlation
-                                  let colorClass = "text-slate-300";
-                                  if (i !== j) {
-                                    if (val > 0.7) colorClass = "text-red-400";
-                                    else if (val < 0.3) colorClass = "text-emerald-400";
-                                    else colorClass = "text-amber-400";
-                                  }
-                                  return (
-                                    <td key={j} className={`px-2 py-2 ${colorClass}`}>
-                                      {val.toFixed(2)}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Cumulative Returns Chart */}
-                <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200">Cumulative Returns: {optimizationModel === 'risk-parity' ? 'Risk Parity' : 'Max Sharpe'} vs IHSG</CardTitle>
-                    <CardDescription className="text-slate-400">Performance comparison over the selected period</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[400px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={data.cumulativeReturns} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                          <XAxis 
-                            dataKey="date" 
-                            stroke="#64748b" 
-                            tick={{ fill: '#64748b', fontSize: 12 }}
-                            tickFormatter={(val) => val.substring(0, 4)}
-                          />
-                          <YAxis 
-                            stroke="#64748b" 
-                            tick={{ fill: '#64748b', fontSize: 12 }}
-                            tickFormatter={(val) => `${val.toFixed(0)}%`}
-                          />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc' }}
-                            itemStyle={{ color: '#e2e8f0' }}
-                            formatter={(value: number) => [`${value.toFixed(2)}%`, '']}
-                            labelFormatter={(label) => `Date: ${label}`}
-                          />
-                          <Legend />
-                          <Line type="monotone" dataKey="portfolio" name={`${optimizationModel === 'risk-parity' ? 'Risk Parity' : 'Max Sharpe'} Portfolio`} stroke="#3b82f6" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="ihsg" name="IHSG (^JKSE)" stroke="#10b981" strokeWidth={2} dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Drawdown Chart */}
-                  <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                    <CardHeader>
-                      <CardTitle className="text-slate-200">Drawdown Series</CardTitle>
-                      <CardDescription className="text-slate-400">Portfolio drawdown over time</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={data.drawdownSeries} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                            <XAxis 
-                              dataKey="date" 
-                              stroke="#64748b" 
-                              tick={{ fill: '#64748b', fontSize: 12 }}
-                              tickFormatter={(val) => val.substring(0, 4)}
-                            />
-                            <YAxis 
-                              stroke="#64748b" 
-                              tick={{ fill: '#64748b', fontSize: 12 }}
-                              tickFormatter={(val) => `${val.toFixed(0)}%`}
-                            />
-                            <Tooltip 
-                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc' }}
-                              itemStyle={{ color: '#e2e8f0' }}
-                              formatter={(value: number) => [`${value.toFixed(2)}%`, 'Drawdown']}
-                              labelFormatter={(label) => `Date: ${label}`}
-                            />
-                            <Line type="monotone" dataKey="drawdown" name="Drawdown" stroke="#ef4444" strokeWidth={2} dot={false} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Rolling Metrics Chart */}
-                  <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                    <CardHeader>
-                      <CardTitle className="text-slate-200">Rolling Metrics (1Y)</CardTitle>
-                      <CardDescription className="text-slate-400">Rolling Sharpe and Volatility</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={data.rollingMetrics} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                            <XAxis 
-                              dataKey="date" 
-                              stroke="#64748b" 
-                              tick={{ fill: '#64748b', fontSize: 12 }}
-                              tickFormatter={(val) => val.substring(0, 4)}
-                            />
-                            <YAxis 
-                              yAxisId="left"
-                              stroke="#64748b" 
-                              tick={{ fill: '#64748b', fontSize: 12 }}
-                            />
-                            <YAxis 
-                              yAxisId="right"
-                              orientation="right"
-                              stroke="#64748b" 
-                              tick={{ fill: '#64748b', fontSize: 12 }}
-                              tickFormatter={(val) => `${val.toFixed(0)}%`}
-                            />
-                            <Tooltip 
-                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc' }}
-                              itemStyle={{ color: '#e2e8f0' }}
-                              labelFormatter={(label) => `Date: ${label}`}
-                            />
-                            <Legend />
-                            <Line yAxisId="left" type="monotone" dataKey="sharpe" name="Sharpe Ratio" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                            <Line yAxisId="right" type="monotone" dataKey="volatility" name="Volatility" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Top 100 Portfolios */}
-                <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-slate-200">Top 100 Efficient Portfolios</CardTitle>
-                    <CardDescription className="text-slate-400">Ranked by Sharpe Ratio</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                      <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-400 uppercase bg-slate-950/50 sticky top-0 z-10">
-                          <tr>
-                            <th className="px-4 py-3 rounded-tl-lg">Rank</th>
-                            <th className="px-4 py-3">Return</th>
-                            <th className="px-4 py-3">Risk</th>
-                            <th className="px-4 py-3">Sharpe</th>
-                            {data.assets.map(a => <th key={a.ticker} className="px-4 py-3">{a.ticker}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.top100Portfolios.map((port, idx) => (
-                            <tr key={idx} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
-                              <td className="px-4 py-3 font-medium text-slate-400">#{idx + 1}</td>
-                              <td className="px-4 py-3 text-emerald-400">{formatPercent(port.return)}</td>
-                              <td className="px-4 py-3 text-amber-400">{formatPercent(port.risk)}</td>
-                              <td className="px-4 py-3 text-cyan-400">{port.sharpe.toFixed(2)}</td>
-                              {data.assets.map(a => (
-                                <td key={a.ticker} className="px-4 py-3 text-slate-300">
-                                  {formatPercent(port.weights[a.ticker] || 0)}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/20 backdrop-blur-sm">
-                <Activity className="w-12 h-12 mb-4 opacity-20 text-blue-500" />
-                <p>Enter parameters and calculate to see the efficient frontier.</p>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
         )}
 
-        {activeTab === 'simulation' && (
-          <Simulation data={data} />
-        )}
-
-        {activeTab === 'learn' && (
-          <Learn />
-        )}
+        {/* Footer */}
+        <footer className="text-center py-8 border-t border-slate-800/50">
+          <p className="text-xs text-slate-600">
+            Nusantara Quant &mdash; Modern Portfolio Theory for Indonesian Markets
+          </p>
+        </footer>
       </div>
+
       <AIAssistant contextData={data} />
     </div>
   );
